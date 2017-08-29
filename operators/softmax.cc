@@ -19,7 +19,7 @@ namespace caffe2 {
 	      }
     void fillsrc(arm_compute::Tensor &tensor, const float* src, int N, int W) {
       arm_compute::Window window;
-      window.set(0, arm_compute::Window::Dimension(0, W, 1));
+      window.set(0, arm_compute::Window::Dimension(0, N * W, 1));
       
       arm_compute::execute_window_loop(window, [&](const arm_compute::Coordinates &id) {
         float value = src[id.x()];
@@ -29,7 +29,7 @@ namespace caffe2 {
     }
     void filldst(arm_compute::Tensor &tensor, float* dst, int N, int W) {
       arm_compute::Window window;
-      window.set(0, arm_compute::Window::Dimension(0, W, 1));
+      window.set(0, arm_compute::Window::Dimension(0, N * W, 1));
       
       arm_compute::execute_window_loop(window, [&](const arm_compute::Coordinates &id) {
 	void *out = tensor.ptr_to_element(id);
@@ -44,17 +44,25 @@ namespace caffe2 {
 	const int N = X.dim32(0), W = X.dim32(1);
 	arm_compute::Tensor softmax0;
 	arm_compute::Tensor src;
-	arm_compute::TensorShape src_shape(N, W);
+	arm_compute::TensorShape src_shape(X.size());
 	arm_compute::NESoftmaxLayer softmax;
+	std::cout << "i am softmax " << std::endl;
 
 	src.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
 	softmax0.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
 	softmax.configure(&src, &softmax0);
+	src.allocator()->allocate();
 	softmax0.allocator()->allocate();
 	const float *_src = X.template data<float>();
 	fillsrc(src, _src, N, W); 
+	void *src_o = src.ptr_to_element(arm_compute::Coordinates(0, 0));
+	float tmp_o = *reinterpret_cast<float *>(src_o);
+	std::cout << "finish softmax " << tmp_o << " ";
 
 	softmax.run();	
+	void *out = softmax0.ptr_to_element(arm_compute::Coordinates(0, 0));
+	float tmp = *reinterpret_cast<float *>(out);
+	std::cout << "finish softmax " << tmp << " ";
 
 	float *_res = Y->template mutable_data<float>();
 	filldst(softmax0, _res, N, W);

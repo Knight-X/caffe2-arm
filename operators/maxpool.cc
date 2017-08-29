@@ -47,7 +47,7 @@ namespace caffe2 {
 	auto* Y = Output(0);
 	const int H = X.dim32(2), W = X.dim32(3);
 	ConvPoolOpBase<CPUContext>::SetOutputSize(X, Y, X.dim32(1));
-        const int oH = Y->dim32(3), oW = Y->dim32(2);
+        const int oW = Y->dim32(3), oH = Y->dim32(2);
 	const size_t N = X.dim32(0);
 	const size_t C = X.dim32(1);
 	arm_compute::NEPoolingLayer pool;
@@ -57,7 +57,7 @@ namespace caffe2 {
 	src.allocator()->init(arm_compute::TensorInfo(input_shape, 1, arm_compute::DataType::F32));
 
 	arm_compute::Tensor poolout;
-	arm_compute::TensorShape output_shape(W / 2, H / 2, C);
+	arm_compute::TensorShape output_shape(oW, oH, C);
         poolout.allocator()->init(arm_compute::TensorInfo(output_shape, 1, arm_compute::DataType::F32));
 		
         pool.configure(&src, &poolout, arm_compute::PoolingLayerInfo(arm_compute::PoolingType::MAX, 2));
@@ -68,7 +68,7 @@ namespace caffe2 {
 	fillsrc(src, _src, N, C, H, W);
 	pool.run();
 	float *_res = Y->template mutable_data<float>();
-	filldst(poolout, _res, 1, C, oH, oW);
+	filldst(poolout, _res, N, C, oH, oW);
 
       }
     private:
