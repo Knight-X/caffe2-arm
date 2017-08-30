@@ -16,7 +16,17 @@ namespace caffe2 {
     public:
       ARMSoftmaxOp(const OperatorDef& operator_def, Workspace* ws)
 	      : Operator<CPUContext>(operator_def, ws) {
-	      }
+        auto& X = Input(0);
+	auto* Y = Output(0);
+	const unsigned int N = X.dim32(0), W = X.dim32(1);
+	arm_compute::TensorShape src_shape(X.size());
+
+	src.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
+	res.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
+	softmax.configure(&src, &res);
+	src.allocator()->allocate();
+	res.allocator()->allocate();
+	}
     void fillsrc(arm_compute::Tensor &tensor, const float* src, int N, int W) {
       arm_compute::Window window;
       window.set(0, arm_compute::Window::Dimension(0, N * W, 1));
@@ -42,32 +52,21 @@ namespace caffe2 {
         auto& X = Input(0);
 	auto* Y = Output(0);
 	const int N = X.dim32(0), W = X.dim32(1);
-	arm_compute::Tensor softmax0;
-	arm_compute::Tensor src;
-	arm_compute::TensorShape src_shape(X.size());
-	arm_compute::NESoftmaxLayer softmax;
-	std::cout << "i am softmax " << std::endl;
-
-	src.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
-	softmax0.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
-	softmax.configure(&src, &softmax0);
-	src.allocator()->allocate();
-	softmax0.allocator()->allocate();
 	const float *_src = X.template data<float>();
 	fillsrc(src, _src, N, W); 
-	void *src_o = src.ptr_to_element(arm_compute::Coordinates(0, 0));
-	float tmp_o = *reinterpret_cast<float *>(src_o);
-	std::cout << "finish softmax " << tmp_o << " ";
 
 	softmax.run();	
-	void *out = softmax0.ptr_to_element(arm_compute::Coordinates(0, 0));
-	float tmp = *reinterpret_cast<float *>(out);
-	std::cout << "finish softmax " << tmp << " ";
 
 	float *_res = Y->template mutable_data<float>();
-	filldst(softmax0, _res, N, W);
+	filldst(res, _res, N, W);
+	return true;
 
       }
+    private:
+      arm_compute::Tensor src;
+      arm_compute::Tensor res;
+      arm_compute::NESoftmaxLayer softmax;
+
   }; 
   REGISTER_CPU_OPERATOR_WITH_ENGINE(Softmax, ARM, ARMSoftmaxOp);
 }
