@@ -16,11 +16,20 @@ namespace caffe2 {
     public:
       ARMReluOp(const OperatorDef& operator_def, Workspace* ws)
 	      : Operator<CPUContext>(operator_def, ws) {
-	      }
+        auto& X = Input(0);
+	auto* Y = Output(0);
+	const unsigned int N = X.size();
+        arm_compute::TensorShape src_shape(N);
+
+	src.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
+	res.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
+	layer.configure(&src, &res, arm_compute::ActivationLayerInfo(arm_compute::ActivationLayerInfo::ActivationFunction::RELU));
+	res.allocator()->allocate();
+	src.allocator()->allocate();
+      }
     void fillsrc(arm_compute::Tensor &tensor, const float* src, int N) {
       arm_compute::Window window;
       window.set(0, arm_compute::Window::Dimension(0, N, 1));
-	std::cout << "finish src " << std::endl;
       
       arm_compute::execute_window_loop(window, [&](const arm_compute::Coordinates &id) {
         float value = src[id.x()];
@@ -42,26 +51,23 @@ namespace caffe2 {
       bool RunOnDevice() override {
         auto& X = Input(0);
 	auto* Y = Output(0);
-	const int N = X.size();
-	arm_compute::Tensor act0;
-	arm_compute::Tensor src;
-	arm_compute::TensorShape src_shape(N);
-	arm_compute::NEActivationLayer act_lay;
+	const unsigned int N = X.size();
 
-	src.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
-	act0.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
-	act_lay.configure(&src, &act0, arm_compute::ActivationLayerInfo(arm_compute::ActivationLayerInfo::ActivationFunction::RELU));
-	act0.allocator()->allocate();
-	src.allocator()->allocate();
 	const float *_src = X.template data<float>();
 	fillsrc(src, _src, N); 
 
-	act_lay.run();	
+	layer.run();	
 
 	float *_res = Y->template mutable_data<float>();
-	filldst(act0, _res, N);
+	filldst(res, _res, N);
+	return true;
 
       }
+    private:
+      arm_compute::Tensor src;
+      arm_compute::Tensor res;
+      arm_compute::NEActivationLayer layer;
+
   }; 
   REGISTER_CPU_OPERATOR_WITH_ENGINE(Relu, ARM, ARMReluOp);
 }
