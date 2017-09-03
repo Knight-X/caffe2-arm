@@ -19,7 +19,7 @@ namespace caffe2 {
         auto& X = Input(0);
 	auto* Y = Output(0);
 	const unsigned int N = X.dim32(0), W = X.dim32(1);
-	arm_compute::TensorShape src_shape(X.size());
+	arm_compute::TensorShape src_shape(static_cast<unsigned int>(X.size()));
 
 	src.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
 	res.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
@@ -51,7 +51,7 @@ namespace caffe2 {
       bool RunOnDevice() override {
         auto& X = Input(0);
 	auto* Y = Output(0);
-	const int N = X.dim32(0), W = X.dim32(1);
+	int N = X.dim32(0), W = X.dim32(1);
 	const float *_src = X.template data<float>();
 	fillsrc(src, _src, N, W); 
 

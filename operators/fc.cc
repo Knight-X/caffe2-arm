@@ -16,7 +16,28 @@ namespace caffe2 {
     public:
       ARMFullyConnectedOp(const OperatorDef& operator_def, Workspace* ws)
 	      : Operator<CPUContext>(operator_def, ws) {
-	      }
+        auto& X = Input(0);
+	auto& W = Input(1);
+	auto& b = Input(2);
+	auto* Y = Output(0);
+	const int M = X.dim32(0), K = X.dim32(1);
+	const int N = W.dim32(0);
+
+	arm_compute::TensorShape src_shape(K);
+	arm_compute::TensorShape weight_shape(K, N);
+	arm_compute::TensorShape bias_shape(N);
+	arm_compute::TensorShape res_shape(N);
+
+	src.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
+	weight.allocator()->init(arm_compute::TensorInfo(weight_shape, 1, arm_compute::DataType::F32));
+	bias.allocator()->init(arm_compute::TensorInfo(bias_shape, 1, arm_compute::DataType::F32));
+	res.allocator()->init(arm_compute::TensorInfo(res_shape, 1, arm_compute::DataType::F32));
+	fc.configure(&src, &weight, &bias, &res);
+	src.allocator()->allocate();
+	weight.allocator()->allocate();
+	bias.allocator()->allocate();
+	res.allocator()->allocate();
+	}
     void fillsrc(arm_compute::Tensor &tensor, const float* src, int M, int K) {
       arm_compute::Window window;
       window.set(0, arm_compute::Window::Dimension(0, K, 1));
@@ -69,25 +90,7 @@ namespace caffe2 {
 	if (W.dim32(0) == K) {
 	  std::cout << "equal " << std::endl;
 	}
-	arm_compute::Tensor src;
-	arm_compute::TensorShape src_shape(K);
-	arm_compute::TensorShape weight_shape(K, N);
-	arm_compute::TensorShape bias_shape(N);
-	arm_compute::TensorShape res_shape(N);
-	arm_compute::Tensor weight;
-	arm_compute::Tensor bias;
-	arm_compute::Tensor res;
-	arm_compute::NEFullyConnectedLayer fc;
 
-	src.allocator()->init(arm_compute::TensorInfo(src_shape, 1, arm_compute::DataType::F32));
-	weight.allocator()->init(arm_compute::TensorInfo(weight_shape, 1, arm_compute::DataType::F32));
-	bias.allocator()->init(arm_compute::TensorInfo(bias_shape, 1, arm_compute::DataType::F32));
-	res.allocator()->init(arm_compute::TensorInfo(res_shape, 1, arm_compute::DataType::F32));
-	fc.configure(&src, &weight, &bias, &res);
-	src.allocator()->allocate();
-	weight.allocator()->allocate();
-	bias.allocator()->allocate();
-	res.allocator()->allocate();
 
 	const float *_src = X.template data<float>();
 	const float *_bias = b.template data<float>();
@@ -95,19 +98,20 @@ namespace caffe2 {
 	fillsrc(src, _src, M, K); 
 	fillweight(weight,_weight, K, N);
 	fillbias(bias, _bias, N);
-	void *src_o = src.ptr_to_element(arm_compute::Coordinates(0, 0));
-	float tmp_o = *reinterpret_cast<float *>(src_o);
-	std::cout << "finish fc " << tmp_o << " ";
 
 	fc.run();	
-	void *out = res.ptr_to_element(arm_compute::Coordinates(0, 0));
-	float tmp = *reinterpret_cast<float *>(out);
-	std::cout << "finish fc " << tmp << " ";
 
 	float *_res = Y->template mutable_data<float>();
 	filldst(res, _res, M, N);
+	return true;
 
       }
+    private:
+	arm_compute::Tensor src;
+	arm_compute::Tensor res;
+	arm_compute::NEFullyConnectedLayer fc;
+	arm_compute::Tensor weight;
+	arm_compute::Tensor bias;
   }; 
   REGISTER_CPU_OPERATOR_WITH_ENGINE(FC, ARM, ARMFullyConnectedOp);
 }
