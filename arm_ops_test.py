@@ -60,8 +60,6 @@ class NNPackOpsTest(hu.HypothesisTestCase):
 
         X = np.random.rand(
             batch_size, input_channels, size, size).astype(np.float32)
-        for i in range(size):
-            print(X[0][0][i])
         w = np.random.rand(
             output_channels, input_channels, kernel, kernel).astype(np.float32)
         b = np.random.rand(output_channels).astype(np.float32)
@@ -99,10 +97,8 @@ class NNPackOpsTest(hu.HypothesisTestCase):
             batch_size, input_channels, size, size).astype(np.float32) - 0.5
         order = "NCHW"
         outputs = {}
-        # only 2 * 2 stride and 2 * 2 pool is supported in NNPack now
         stride = 1 
         kernel = 2
-        # The pooling strategy of NNPack is different from caffe2 pooling
         pad = 0
         for engine in ["", "ARM"]:
             op = core.CreateOperator(
