@@ -44,9 +44,9 @@ class NNPackOpsTest(hu.HypothesisTestCase):
            pad=st.integers(0, 0),
            kernel=st.integers(3, 5),
            size=st.integers(5 , 32),
-           input_channels=st.integers(2, 2),
-           output_channels=st.integers(2, 2),
-           batch_size=st.integers(1, 1),
+           input_channels=st.integers(1, 5),
+           output_channels=st.integers(1, 5),
+           batch_size=st.integers(1, 5),
            groups=st.integers(1, 1))
     def test_convolution_correctness(self, stride, pad, kernel, size,
                                      input_channels, output_channels,

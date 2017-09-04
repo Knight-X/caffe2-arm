@@ -30,62 +30,27 @@ namespace caffe2 {
       ConvPoolOpBase<CPUContext>::SetOutputSize(X, Y, filter.dim32(0));
       unsigned int oH = Y->dim32(2), oW = Y->dim32(3);
 
-      unsigned int kernel_x_conv0 = filter.dim32(2);
-      unsigned int kernel_y_conv0 = filter.dim32(3);
-      unsigned int ofm_conv0 = M; 
+      unsigned int kernel_x_conv = filter.dim32(2);
+      unsigned int kernel_y_conv = filter.dim32(3);
+      unsigned int ofm = M; 
 
 
-      const arm_compute::TensorShape weight_shape(kernel_x_conv0, kernel_y_conv0, src_shape.z(), ofm_conv0);
+      const arm_compute::TensorShape weight_shape(kernel_x_conv, kernel_y_conv, src_shape.z(), ofm);
 
       const arm_compute::TensorShape biases_shape(weight_shape[3]);
       const arm_compute::TensorShape out_shape(oW, oH, weight_shape[3]);
 
-      weight.allocator()->init(arm_compute::TensorInfo(weight_shape, 1, arm_compute::DataType::F32));
-      bias.allocator()->init(arm_compute::TensorInfo(biases_shape, 1, arm_compute::DataType::F32));
-      conv.allocator()->init(arm_compute::TensorInfo(out_shape, 1, arm_compute::DataType::F32)); 
+      weightes.allocator()->init(arm_compute::TensorInfo(weight_shape, 1, arm_compute::DataType::F32));
+      biases.allocator()->init(arm_compute::TensorInfo(biases_shape, 1, arm_compute::DataType::F32));
+      res.allocator()->init(arm_compute::TensorInfo(out_shape, 1, arm_compute::DataType::F32)); 
 
-      conv.configure(&src, &weight, &bias, &conv, arm_compute::PadStrideInfo());
+      conv.configure(&src, &weightes, &biases, &res, arm_compute::PadStrideInfo());
       src.allocator()->allocate();
 
-      weight.allocator()->allocate();
-      bias.allocator()->allocate();
-      conv.allocator()->allocate();
+      weightes.allocator()->allocate();
+      biases.allocator()->allocate();
+      res.allocator()->allocate();
       }
-    bool convertinput(float* dst, const float* src, int N, int C, int H, int W) {
-      for (unsigned int i = 0; i < N; i++) {
-	for (unsigned int j = 0; j < C; j++) {
-          for (unsigned int k = 0; k < H; k++) {
-	    for (unsigned int h = 0; h < W; h++) {
-              dst[h * H * C + k * C + j] = src[i * C * H * W + j * W * H + k * W + h];
-	    }
-	  }
-        }
-      }
-      std::cout << "finish input converter " << std::endl;
-    }
-    bool convertweight(float* dst, const float* src, int out, int in, int kernel) {
-      for (uint8_t i = 0; i < out; i++) {
-        for (uint8_t j = 0; j < in; j++) {
-          for (uint8_t k = 0; k < kernel; k++) {
-            for (uint8_t h = 0; h < kernel; h++) {
-	       dst[k * kernel * in * out + h * in * out + j * out + i] = src[i * in * kernel * kernel + j * kernel * kernel + k * kernel + h];
-	    }
-	  }
-	}
-      }
-      std::cout << "finish weight converter " << std::endl;
-    }
-    bool convertres(float* src, float* dst, int N, int C, int H, int W) {
-      for (unsigned int i = 0; i < N; i++) {
-	for (unsigned int j = 0; j < C; j++) {
-          for (unsigned int k = 0; k < H; k++) {
-	    for (unsigned int h = 0; h < W; h++) {
-              dst[i * C * H * W + j * W * H + k * W + h] = src[h * H * C + k * C + j];
-	  }
-	}
-	}
-      }
-    }
 
     void fillsrc(arm_compute::Tensor &tensor, const float* src, int N, int C, int H, int W) {
       arm_compute::Window window;
@@ -94,7 +59,7 @@ namespace caffe2 {
       window.set(2, arm_compute::Window::Dimension(0, C, 1));
       
       arm_compute::execute_window_loop(window, [&](const arm_compute::Coordinates &id) {
-        float value = src[id.z() * H * W + id.y() * W + id.x()];
+        float value = src[N * C * H * W + id.z() * H * W + id.y() * W + id.x()];
 	void *out = tensor.ptr_to_element(id);
 	*reinterpret_cast<float *>(out) = value;
       });
@@ -121,7 +86,7 @@ namespace caffe2 {
       
       arm_compute::execute_window_loop(window, [&](const arm_compute::Coordinates &id) {
 	void *out = tensor.ptr_to_element(id);
-        dst[id.z() * H * W + id.y() * W + id.x()] = *reinterpret_cast<float *>(out);
+        dst[N * C * H * W + id.z() * H * W + id.y() * W + id.x()] = *reinterpret_cast<float *>(out);
       });
 
     }
@@ -134,45 +99,46 @@ namespace caffe2 {
       unsigned int N = X.dim32(0), C = X.dim32(1), H = X.dim32(2), W = X.dim32(3);
       unsigned int M = filter.dim32(0);  
       
+      const arm_compute::TensorShape src_shape(W, H, C);
       unsigned int oH = Y->dim32(2), oW = Y->dim32(3);
 
-      unsigned int kernel_x_conv0 = filter.dim32(2);
-      unsigned int kernel_y_conv0 = filter.dim32(3);
-      unsigned int ofm_conv0 = M; 
-
-
-      const float *_buf = X.template data<float>();
-      float* buf = reinterpret_cast<float *>(src.allocator()->data());
-      if (X.dim32(1) == src_shape.z() && X.dim32(2) == src_shape.y() && X.dim32(3) == src_shape.x()) {
-        //convertinput(buf, _buf, N, C, H, W);
-	fillsrc(src, _buf, N, C, H, W);
+      unsigned int kernel_x_conv = filter.dim32(2);
+      unsigned int kernel_y_conv = filter.dim32(3);
+      unsigned int ofm = M; 
+      const arm_compute::TensorShape weight_shape(kernel_x_conv, kernel_y_conv, src_shape.z(), ofm);
+      const float *_weight = filter.template data<float>();
+      if (filter.dim32(0) == ofm && filter.dim32(1) == src_shape.z() && filter.dim32(2) == kernel_x_conv && filter.dim32(3) == kernel_x_conv) {
+	fillweights(weightes, _weight, ofm, src_shape.z(), kernel_x_conv, kernel_x_conv);
       }
 
-      const float *_weights = filter.template data<float>();
-      float* weights = reinterpret_cast<float *>(weights0.allocator()->data());
-      if (filter.dim32(0) == ofm_conv0 && filter.dim32(1) == src_shape.z() && filter.dim32(2) == kernel_x_conv0 && filter.dim32(3) == kernel_x_conv0) {
-	fillweights(weights0, _weights, ofm_conv0, src_shape.z(), kernel_x_conv0, kernel_x_conv0);
-      }
-      
       const float *_bias = bias.template data<float>();
-      float *biass = reinterpret_cast<float *>(biases0.allocator()->data());
-      for (unsigned int i = 0; i < ofm_conv0; i++) {
+      float *biass = reinterpret_cast<float *>(biases.allocator()->data());
+      for (unsigned int i = 0; i < ofm; i++) {
 	      biass[i] = _bias[i];
       }
+      for (unsigned int n = 0; n < N; n++) {
 
-      conv0.run();
+      	const float *_buf = X.template data<float>();
+      	if (X.dim32(1) == src_shape.z() && X.dim32(2) == src_shape.y() && X.dim32(3) == src_shape.x()) {
+	  fillsrc(src, _buf, n, C, H, W);
+        }
       
-      float *_result = Y->template mutable_data<float>();
-      if (Y->dim32(0) == 1 && Y->dim32(1) == weight_shape[3]) {
-	std::cout << "dim correct " << std::endl;
-        filldst(out_conv0, _result, 1, weight_shape[3], oH, oW);
+
+        conv.run();
+      
+        float *_res = Y->template mutable_data<float>();
+        if (Y->dim32(0) == 1 && Y->dim32(1) == weight_shape[3]) {
+	 std::cout << "dim correct " << std::endl;
+          filldst(res, _res, n, weight_shape[3], oH, oW);
+        }
       }
+      return true;
     }
   private:
       arm_compute::NEConvolutionLayer conv;
       arm_compute::Tensor src;
-      arm_compute::Tensor weight;
-      arm_compute::Tensor bias;
+      arm_compute::Tensor weightes;
+      arm_compute::Tensor biases;
       arm_compute::Tensor res;
   };
   REGISTER_CPU_OPERATOR_WITH_ENGINE(Conv, ARM, ARMConvOp);
