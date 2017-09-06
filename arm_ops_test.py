@@ -91,7 +91,7 @@ class NNPackOpsTest(hu.HypothesisTestCase):
 
     @given(size=st.sampled_from([6, 8]),
            input_channels=st.integers(1, 8),
-           batch_size=st.integers(1, 1))
+           batch_size=st.integers(1, 8))
     def test_max_pool_correctness(self, size, input_channels, batch_size):
         X = np.random.rand(
             batch_size, input_channels, size, size).astype(np.float32) - 0.5
