@@ -90,6 +90,17 @@ namespace caffe2 {
       });
 
     }
+    void fillbias(arm_compute::Tensor &tensor, const float* src, int N) {
+      arm_compute::Window window;
+      window.set(0, arm_compute::Window::Dimension(0, N, 1));
+      
+      arm_compute::execute_window_loop(window, [&](const arm_compute::Coordinates &id) {
+	float value = src[id.x()];
+	void *out = tensor.ptr_to_element(id);
+        *reinterpret_cast<float *>(out) = value;
+      });
+
+    }
     bool RunOnDeviceWithOrderNCHW() override {
       auto& X = Input(0);
       auto& filter = Input(1);
@@ -112,10 +123,8 @@ namespace caffe2 {
       }
 
       const float *_bias = bias.template data<float>();
-      float *biass = reinterpret_cast<float *>(biases.allocator()->data());
-      for (unsigned int i = 0; i < ofm; i++) {
-	      biass[i] = _bias[i];
-      }
+      fillbias(biases, _bias, ofm); 
+
       for (unsigned int n = 0; n < N; n++) {
 
       	const float *_buf = X.template data<float>();
