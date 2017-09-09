@@ -20,11 +20,12 @@ def benchmark(ws, net, engine, warmups=5, iters=100):
     for _ in range(warmups):
         ws.run(net)
     before = time.time()
-    ws.run(net)
+    for i in range(iters):
+      ws.run(net)
     after = time.time()
     print(engine)
     print("Timing network, time taken per-iteration: {:.6f}ms".format((
-        after - before) * 10.0))
+        after - before) / float(iters) * 10.0))
     return after - before
 
 
