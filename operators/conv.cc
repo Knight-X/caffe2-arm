@@ -137,7 +137,6 @@ namespace caffe2 {
       
         float *_res = Y->template mutable_data<float>();
         if (Y->dim32(0) == 1 && Y->dim32(1) == weight_shape[3]) {
-	 std::cout << "dim correct " << std::endl;
           filldst(res, _res, n, weight_shape[3], oH, oW);
         }
       }

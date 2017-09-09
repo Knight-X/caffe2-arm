@@ -26,7 +26,7 @@ src/intro.o : src/intro.cc
 object:
 	g++ -g -fPIC -std=c++11 -mfpu=neon -march=armv7-a -mthumb -mfloat-abi=hard -I/usr/local/include -I/usr/local/include/eigen3 -I../ComputeLibrary -c operators/softmax.cc operators/maxpool.cc operators/conv.cc operators/relu.cc operators/fc.cc
 softmax:
-	g++ -g -fPIC -std=c++11 -mfpu=neon -march=armv7-a -mthumb -mfloat-abi=hard -I/usr/local/include -I/usr/local/include/eigen3 -I../ComputeLibrary -c operators/softmax.cc operators/maxpool.cc operators/conv.cc operators/relu.cc operators/fc.cc
+	g++ -g -fPIC -std=c++11 -mfpu=neon -march=armv7-a -mthumb -mfloat-abi=hard -I/usr/local/include -I/usr/local/include/eigen3 -I../ComputeLibrary -c operators/softmax.cc 
 
 maxpool:
 	g++ -g -fPIC -std=c++11 -mfpu=neon -march=armv7-a -mthumb -mfloat-abi=hard -I/usr/local/include -I/usr/local/include/eigen3 -I../ComputeLibrary -c operators/maxpool.cc

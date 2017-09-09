@@ -16,16 +16,15 @@ import caffe2.python.hypothesis_test_util as hu
 dyndep.InitOpsLibrary("./arm.so")
 
 
-def benchmark(ws, net, warmups=5, iters=100):
+def benchmark(ws, net, engine, warmups=5, iters=100):
     for _ in range(warmups):
         ws.run(net)
-    plan = core.Plan("plan")
-    plan.AddStep(core.ExecutionStep("test-step", net, iters))
     before = time.time()
-    ws.run(plan)
+    ws.run(net)
     after = time.time()
+    print(engine)
     print("Timing network, time taken per-iteration: {:.6f}ms".format((
-        after - before) / float(iters) * 1000.0))
+        after - before) * 10.0))
     return after - before
 
 
@@ -81,6 +80,7 @@ class NNPackOpsTest(hu.HypothesisTestCase):
             self.ws.create_blob("X").feed(X)
             self.ws.create_blob("w").feed(w)
             self.ws.create_blob("b").feed(b)
+            benchmark(self.ws, op, engine)
             self.ws.run(op)
             outputs[engine] = self.ws.blobs["Y"].fetch()
         np.testing.assert_allclose(
